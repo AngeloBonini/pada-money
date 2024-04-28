@@ -1,1 +1,12 @@
 /* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+@import '~@clr/ui/clr-ui.min.css';
+@import '~@clr/icons/clr-icons.min.css';
+@import '@cds/core/global.min.css';
+@import '@cds/core/styles/theme.dark.min.css';
+@import '@clr/ui/clr-ui.min.css';
+
+body {
+    font-family: 'Roboto', sans-serif;
+}

@@ -65,10 +65,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "pada-money:build:production"
+              "buildTarget": "pada-money:build:production"
             },
             "development": {
-              "browserTarget": "pada-money:build:development"
+              "buildTarget": "pada-money:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -76,7 +76,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "pada-money:build"
+            "buildTarget": "pada-money:build"
           }
         },
         "test": {
@@ -100,5 +100,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }
