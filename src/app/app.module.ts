@@ -1,8 +1,7 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
-
+import { ClarityModule } from '@clr/angular';
 import { AppComponent } from './app.component';
 
 @NgModule({
@@ -13,7 +12,7 @@ import { AppComponent } from './app.component';
     BrowserModule,
     FormsModule,
     ReactiveFormsModule,
-    BsDropdownModule.forRoot()
+    ClarityModule
   ],
   providers: [],
   bootstrap: [AppComponent]

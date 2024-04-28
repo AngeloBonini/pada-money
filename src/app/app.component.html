@@ -1,46 +1,53 @@
-<div class="container mt-5">
-  <form>
-    <div class="form-group">
-      <label for="companyName">Nome da empresa</label>
-      <input type="text" class="form-control" id="companyName" placeholder="Razão social completa">
-    </div>
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="zipCode">CEP</label>
-        <input type="number" class="form-control" id="zipCode">
+<div class="main-container">
+  <div class="content-container">
+    <div class="row">
+      <div class="col-lg-6 offset-lg-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Invoice Details</h3>
+          </div>
+          <div class="card-block">
+            <form clrForm [formGroup]="invoiceForm" clrLayout="horizontal" clrLabelSize="4" (ngSubmit)="onSubmit()">
+              <clr-input-container>
+                <label for="companyName">Empresa</label>
+                <input id="companyName" type="text" clrInput formControlName="companyName" placeholder="Razão social completa" />
+                <clr-control-helper>Complete company name</clr-control-helper>
+              </clr-input-container>
+          
+              <!-- ... other inputs ... -->
+          
+              <clr-select-container>
+                <label for="state">Estado</label>
+                <select id="state" clrSelect formControlName="state">
+                  <option *ngFor="let state of states" [ngValue]="state">{{ state }}</option>
+                </select>
+              </clr-select-container>
+          
+              <clr-select-container>
+                <label for="city">Cidade</label>
+                <select id="city" clrSelect formControlName="city">
+                  <option *ngFor="let city of cities" [ngValue]="city">{{ city }}</option>
+                </select>
+              </clr-select-container>
+              
+              <clr-input-container>
+                <label for="amount">Amount</label>
+                <input id="amount" clrInput formControlName="amount" type="number" />
+              </clr-input-container>
+              
+              <clr-select-container>
+                <label for="currency">Currency</label>
+                <select id="currency" clrSelect formControlName="currency">
+                  <option *ngFor="let currency of currencies" [ngValue]="currency">{{ currency }}</option>
+                </select>
+              </clr-select-container>
+              <div class="btn-group">
+                <button type="submit" class="btn btn-primary btn-block" [disabled]="!invoiceForm.valid">Submit</button>
+              </div>
+              </form>
+          </div>
+          </div>
       </div>
-      <div class="form-group col-md-6">
-        <label for="cityState">Cidade e estado</label>
-        <div class="input-group">
-          <select class="custom-select" id="city">
-            <option selected>Choose...</option>
-            <!-- Dynamically populate cities -->
-          </select>
-          <select class="custom-select" id="state">
-            <option selected>Choose...</option>
-            <!-- Dynamically populate states -->
-          </select>
-        </div>
-      </div>
     </div>
-    <div class="form-group">
-      <label for="address">Endereço</label>
-      <input type="text" class="form-control" id="address" placeholder="Rua, avenida">
-    </div>
-    <!-- Repeat similar structure for invoicing company -->
-    <div class="form-group">
-      <label for="amount">Amount</label>
-      <input type="number" class="form-control" id="amount">
-    </div>
-    <div class="form-group">
-      <label for="currency">Currency</label>
-      <select class="custom-select" id="currency">
-        <option selected>Choose...</option>
-        <option value="USD">USD</option>
-        <option value="BRL">BRL</option>
-        <!-- Add more currencies as needed -->
-      </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
-    </form>
+  </div>
 </div>

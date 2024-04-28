@@ -1,0 +1,86 @@
+// Define a mixin for animation
+@mixin fade-in($duration) {
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    animation: fadeIn $duration ease-in;
+}
+
+// Main container styles with a gradient background
+.main-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #7f00ff, #e100ff); // Example gradient
+    padding: 1rem;
+    font-family: 'Roboto', sans-serif;
+
+    .content-container {
+        @include fade-in(0.5s); // Use the fade-in animation mixin
+    }
+}
+
+// Card styling
+.card {
+    background: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-bottom: 2rem;
+
+    .card-header {
+        background: #f7f7f7;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #dcdcdc;
+        text-align: center;
+
+        h4 {
+            margin: 0;
+            color: #333;
+        }
+    }
+
+    .card-block {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+
+        form {
+            .btn-group {
+                display: flex;
+                justify-content: center; // This centers the button horizontally
+                margin-top: 1rem; // Add some space above the button if needed
+            }
+
+            .btn-primary {
+                width: auto; // Override if you have set a specific width for buttons
+                padding: 0.5rem 1.5rem; // Optional: Adjust padding to your liking
+            }
+
+            .btn {
+                transition: background-color 0.3s, transform 0.3s;
+
+                &:hover {
+                    background-color: darken($color: #007bff, $amount: 5);
+                    transform: translateY(-2px);
+                }
+            }
+        }
+    }
+}
+
+// Responsive card width
+@media (min-width: 576px) {
+    .card {
+        width: 100%;
+        max-width: 600px;
+    }
+}

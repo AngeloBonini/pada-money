@@ -1,18 +1,19 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { DataService } from './data.service';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+  styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
-  invoiceForm!: FormGroup;
-  submitted = false;
+export class AppComponent implements OnInit {
+  invoiceForm: FormGroup;
+  states: string[] = [];
+  cities: string[] = [];
+  currencies: string[] = []; // Ensure this is added to store currencies
 
-  constructor(private formBuilder: FormBuilder) {}
-
-  ngOnInit() {
+  constructor(private formBuilder: FormBuilder, private dataService: DataService) {
     this.invoiceForm = this.formBuilder.group({
       companyName: ['', Validators.required],
       companyAddress: ['', Validators.required],
@@ -26,23 +27,38 @@ export class AppComponent {
     });
   }
 
-  // convenience getter for easy access to form fields
-  get f() { return this.invoiceForm.controls; }
+  ngOnInit(): void {
+    this.loadStates();
+    this.loadCurrencies();
 
-  onSubmit() {
-    this.submitted = true;
-
-    // stop here if form is invalid
-    if (this.invoiceForm.invalid) {
-        return;
-    }
-
-    // display form values on success
-    alert('SUCCESS!! :-)\n\n' + JSON.stringify(this.invoiceForm.value, null, 4));
+    // Safe check for form control
+    this.invoiceForm.get('state')?.valueChanges.subscribe(state => {
+      this.loadCities(state);
+    });
   }
 
-  onReset() {
-    this.submitted = false;
-    this.invoiceForm.reset();
+  loadStates(): void {
+    this.dataService.getStates().subscribe(states => {
+      this.states = states;
+    });
+  }
+
+  loadCities(state: string): void {
+    this.dataService.getCities(state).subscribe(cities => {
+      this.cities = cities;
+    });
+  }
+
+  loadCurrencies(): void {
+    this.dataService.getCurrencies().subscribe(currencies => {
+      this.currencies = currencies;
+    });
+  }
+
+  onSubmit(): void {
+    if (this.invoiceForm.valid) {
+      console.log(this.invoiceForm.value);
+      // Handle the form submission, e.g., send data to the backend
+    }
   }
 }
