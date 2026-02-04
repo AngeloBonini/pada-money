@@ -53,54 +53,63 @@ export function OnboardingWizard({ userId }: { userId: string }) {
   }
 
   const handleFinish = async (file: File | null) => {
-    // Final submission
-    const data = methods.getValues()
-    
-    try {
-      // 1. Update Profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          income_type: data.income_type,
-          payday: data.payday,
-          estimated_income: data.estimated_income,
-          main_goal: data.main_goal,
-        })
-        .eq('id', userId)
+    // Wrap in handleSubmit to ensure validation and transformation runs
+    await methods.handleSubmit(async (data) => {
+      try {
+        console.log('Submitting onboarding data:', data)
 
-      if (profileError) throw profileError
+        // 1. Update Profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            income_type: data.income_type,
+            payday: data.payday,
+            estimated_income: data.estimated_income, // Now definitely a number/transformed
+            main_goal: data.main_goal,
+          })
+          .eq('id', userId)
 
-      // 2. Insert Fixed Expenses
-      if (data.fixed_expenses.length > 0) {
-        const expensesToInsert = data.fixed_expenses.map(exp => ({
-          user_id: userId,
-          name: exp.name,
-          amount: exp.amount,
-          category: 'fixed',
-        }))
+        if (profileError) {
+          console.error('Profile update error:', profileError)
+          throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
+        }
 
-        const { error: expensesError } = await supabase
-          .from('recurring_expenses')
-          .insert(expensesToInsert)
+        // 2. Insert Fixed Expenses
+        if (data.fixed_expenses.length > 0) {
+          const expensesToInsert = data.fixed_expenses.map(exp => ({
+            user_id: userId,
+            name: exp.name,
+            amount: exp.amount, // coerced to number by schema
+            category: 'fixed',
+          }))
 
-        if (expensesError) throw expensesError
+          const { error: expensesError } = await supabase
+            .from('recurring_expenses')
+            .insert(expensesToInsert)
+
+          if (expensesError) {
+            console.error('Expenses insert error:', expensesError)
+            throw new Error(`Erro ao salvar despesas: ${expensesError.message}`)
+          }
+        }
+
+        // 3. Handle File Upload (Mock for now or real if bucket exists)
+        if (file) {
+          // TODO: Upload logic (Fase 2)
+          console.log('File to upload:', file.name)
+          // Ensure transactions table update or similar
+        }
+
+        // 4. Redirect
+        console.log('Onboarding complete, redirecting...')
+        router.refresh()
+        router.push('/dashboard')
+
+      } catch (error: any) {
+        console.error('Error saving onboarding data:', error)
+        alert(error.message || 'Ocorreu um erro ao salvar seus dados. Tente novamente.')
       }
-
-      // 3. Handle File Upload (Mock for now or real if bucket exists)
-      if (file) {
-        // TODO: Upload logic (Fase 2)
-        console.log('File to upload:', file.name)
-        // Ensure transactions table update or similar
-      }
-
-      // 4. Redirect
-      router.refresh()
-      router.push('/dashboard')
-
-    } catch (error) {
-      console.error('Error saving onboarding data:', error)
-      alert('Ocorreu um erro ao salvar seus dados. Tente novamente.')
-    }
+    })()
   }
 
   return (

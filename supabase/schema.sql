@@ -119,3 +119,33 @@ create index idx_transactions_user_id on public.transactions(user_id);
 create index idx_transactions_date on public.transactions(date);
 create index idx_transactions_category on public.transactions(category);
 create index idx_insights_user_id on public.insights(user_id);
+
+-- ==================================================
+-- 7. Tabela de Despesas Recorrentes (Onboarding)
+-- ==================================================
+create table if not exists public.recurring_expenses (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  name text not null,
+  amount numeric(10, 2) not null,
+  category text default 'fixed',
+  created_at timestamp with time zone default now()
+);
+
+alter table public.recurring_expenses enable row level security;
+
+create policy "Users can view own recurring expenses" 
+  on recurring_expenses for select 
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own recurring expenses" 
+  on recurring_expenses for insert 
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own recurring expenses" 
+  on recurring_expenses for update 
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own recurring expenses" 
+  on recurring_expenses for delete 
+  using (auth.uid() = user_id);
