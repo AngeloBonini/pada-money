@@ -14,17 +14,20 @@ import { Step2Expenses } from './Step2Expenses'
 import { Step3Goal } from './Step3Goal'
 import { Step4Upload } from './Step4Upload'
 import { onboardingSchema, type OnboardingFormData } from './types'
+import { useProfile } from '@/context/ProfileContext'
 
 export function OnboardingWizard({ userId }: { userId: string }) {
   const [step, setStep] = useState(1)
   const router = useRouter()
+  const { refetchProfile } = useProfile()
+  
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
   const methods = useForm<OnboardingFormData>({
-    resolver: zodResolver(onboardingSchema) as any, // Bypass strict type checking for transform fields
+    resolver: zodResolver(onboardingSchema) as any,
     defaultValues: {
       income_type: undefined,
       fixed_expenses: [],
@@ -35,11 +38,9 @@ export function OnboardingWizard({ userId }: { userId: string }) {
   const totalSteps = 4
 
   const handleNext = async () => {
-    // Validate current step fields before moving
     let fieldsToValidate: any[] = []
     
     if (step === 1) fieldsToValidate = ['income_type', 'payday', 'estimated_income']
-    // Step 2 and 3 can be validated on the fly or allowed to be empty if schema permits (schema requires goal)
     if (step === 3) fieldsToValidate = ['main_goal']
 
     const isValid = await methods.trigger(fieldsToValidate)
@@ -53,7 +54,6 @@ export function OnboardingWizard({ userId }: { userId: string }) {
   }
 
   const handleFinish = async (file: File | null) => {
-    // Wrap in handleSubmit to ensure validation and transformation runs
     await methods.handleSubmit(async (data) => {
       try {
         console.log('Submitting onboarding data:', data)
@@ -64,8 +64,9 @@ export function OnboardingWizard({ userId }: { userId: string }) {
           .update({
             income_type: data.income_type,
             payday: data.payday,
-            estimated_income: data.estimated_income, // Now definitely a number/transformed
+            estimated_income: data.estimated_income,
             main_goal: data.main_goal,
+            // Assuming the trigger or backend handles 'is_onboarded' or it's inferred from these fields
           })
           .eq('id', userId)
 
@@ -74,35 +75,38 @@ export function OnboardingWizard({ userId }: { userId: string }) {
           throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
         }
 
-        // 2. Insert Fixed Expenses
+        // 2. Insert Recurring Transactions
         if (data.fixed_expenses.length > 0) {
           const expensesToInsert = data.fixed_expenses.map(exp => ({
             user_id: userId,
-            name: exp.name,
-            amount: exp.amount, // coerced to number by schema
+            description: exp.name,
+            amount: exp.amount,
             category: 'fixed',
+            type: 'expense' as const,
+            frequency: 'monthly',
+            due_day: data.payday || 1,
+            is_active: true
           }))
 
           const { error: expensesError } = await supabase
-            .from('recurring_expenses')
+            .from('recurring_transactions')
             .insert(expensesToInsert)
 
           if (expensesError) {
             console.error('Expenses insert error:', expensesError)
-            throw new Error(`Erro ao salvar despesas: ${expensesError.message}`)
+            throw new Error(`Erro ao salvar despesas recorrentes: ${expensesError.message}`)
           }
         }
 
-        // 3. Handle File Upload (Mock for now or real if bucket exists)
+        // 3. Handle File Upload (Placeholder)
         if (file) {
-          // TODO: Upload logic (Fase 2)
           console.log('File to upload:', file.name)
-          // Ensure transactions table update or similar
         }
 
-        // 4. Redirect
-        console.log('Onboarding complete, redirecting...')
-        router.refresh()
+        // 4. Redirect with Optimistic Update
+        console.log('Onboarding complete, updating local state...')
+        await refetchProfile()
+        console.log('State updated, redirecting...')
         router.push('/dashboard')
 
       } catch (error: any) {
@@ -137,7 +141,6 @@ export function OnboardingWizard({ userId }: { userId: string }) {
         </FormProvider>
       </Card>
       
-      {/* Background decoration */}
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-background to-background pointer-events-none" />
     </div>
   )

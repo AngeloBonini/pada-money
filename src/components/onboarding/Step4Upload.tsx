@@ -13,11 +13,13 @@ function cn(...inputs: ClassValue[]) {
 
 
 // Placeholder for file type validation
-const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
+const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'text/csv']
+const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 
 export function Step4Upload({ onFinish, onBack }: { onFinish: (file: File | null) => void, onBack: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleDrag = (e: React.DragEvent) => {
@@ -41,10 +43,12 @@ export function Step4Upload({ onFinish, onBack }: { onFinish: (file: File | null
 
   const validateAndSetFile = (f: File) => {
     // Simple validation
-    if (ACCEPTED_TYPES.includes(f.type)) {
+    if (ACCEPTED_TYPES.includes(f.type) || f.name.endsWith('.csv')) {
       setFile(f)
+      setError(null)
     } else {
-      alert('Por favor, envie apenas PDF ou Imagens (JPG/PNG).')
+      setError('Por favor, envie apenas PDF, CSV ou Imagens (JPG/PNG).')
+      alert('Por favor, envie apenas PDF, CSV ou Imagens (JPG/PNG).')
     }
   }
 
@@ -81,7 +85,7 @@ export function Step4Upload({ onFinish, onBack }: { onFinish: (file: File | null
             </div>
             <h3 className="font-semibold text-lg mb-2">Arraste seu extrato aqui</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              PDF ou Imagens (Nubank, Inter, Itaú, etc)
+              Suportamos PDF, CSV e Imagens (max 5MB)
             </p>
             <Button variant="outline" size="sm">
               Selecionar Arquivo
@@ -89,7 +93,7 @@ export function Step4Upload({ onFinish, onBack }: { onFinish: (file: File | null
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,.jpg,.jpeg,.png,.csv"
               className="hidden"
               onChange={handleChange}
             />
@@ -108,6 +112,24 @@ export function Step4Upload({ onFinish, onBack }: { onFinish: (file: File | null
             <Button variant="ghost" size="icon" onClick={() => setFile(null)}>
               <X className="w-4 h-4 text-muted-foreground hover:text-red-500" />
             </Button>
+          </div>
+        )}
+
+        {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-sm text-red-400 text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+
+        {!file && (
+          <div className="text-center">
+            <a href="/sample-extrato.csv" download className="text-xs text-blue-400 hover:text-blue-300 underline">
+              Baixar modelo de CSV
+            </a>
           </div>
         )}
 

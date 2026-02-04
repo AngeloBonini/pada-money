@@ -1,12 +1,26 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth/session'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 
 export default async function OnboardingPage() {
-  const session = await getSession()
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    }
+  )
+
+  const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect('/login')
+    redirect('/auth/login')
   }
 
   return (
@@ -21,7 +35,7 @@ export default async function OnboardingPage() {
           </p>
         </div>
         
-        <OnboardingWizard userId={session.userId} />
+        <OnboardingWizard userId={session.user.id} />
       </div>
     </main>
   )

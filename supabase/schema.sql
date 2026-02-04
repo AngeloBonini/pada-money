@@ -149,3 +149,26 @@ create policy "Users can update own recurring expenses"
 create policy "Users can delete own recurring expenses" 
   on recurring_expenses for delete 
   using (auth.uid() = user_id);
+
+-- ==================================================
+-- 8. Tabela de Transações Recorrentes (Core Engine)
+-- ==================================================
+create table if not exists public.recurring_transactions (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id) not null,
+  description text not null,
+  amount numeric(10, 2) not null,
+  type text check (type in ('income', 'expense')),
+  frequency text default 'monthly',
+  due_day integer not null check (due_day between 1 and 31),
+  category text,
+  is_active boolean default true,
+  created_at timestamp with time zone default now()
+);
+
+alter table public.recurring_transactions enable row level security;
+
+create policy "Users can manage own recurring" 
+  on recurring_transactions 
+  for all 
+  using (auth.uid() = user_id);
