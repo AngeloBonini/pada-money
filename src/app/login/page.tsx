@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,111 +8,129 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Mail, Loader2, Sparkles, Chrome, Lock, Eye, EyeOff } from 'lucide-react'
 
-type AuthMode = 'login' | 'signup' | 'magic-link'
+type AuthMode = 'login' | 'signup' | 'magic-link' | 'forgot-password'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [isLoading, setIsLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const supabase = createClient()
 
-  const handleEmailPasswordAuth = async (e: React.FormEvent) => {
+  const handleEmailPasswordAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
     setMessage(null)
 
+    console.log('[CLIENT] Form submitted, authMode:', authMode)
+
     if (authMode === 'signup') {
-      // Validar senha
+      // Signup
       if (password.length < 6) {
         setMessage({ type: 'error', text: 'A senha deve ter pelo menos 6 caracteres.' })
-        setIsLoading(false)
         return
       }
 
       if (password !== confirmPassword) {
         setMessage({ type: 'error', text: 'As senhas não coincidem.' })
-        setIsLoading(false)
         return
       }
 
-      // Criar conta
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-
-      setIsLoading(false)
-
-      if (error) {
-        setMessage({ type: 'error', text: error.message })
-      } else {
-        setMessage({
-          type: 'success',
-          text: 'Conta criada! Verifique seu email para confirmar o cadastro.',
+      startTransition(async () => {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         })
-        setEmail('')
-        setPassword('')
-        setConfirmPassword('')
-      }
-    } else {
-      // Login
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
 
-      setIsLoading(false)
-
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          setMessage({ type: 'error', text: 'Email ou senha incorretos.' })
-        } else {
+        if (error) {
           setMessage({ type: 'error', text: error.message })
+        } else {
+          setMessage({
+            type: 'success',
+            text: 'Conta criada! Verifique seu email para confirmar o cadastro.',
+          })
+          setEmail('')
+          setPassword('')
+          setConfirmPassword('')
         }
-      } else {
-        router.push('/dashboard')
+      })
+    } else {
+      // Login - handle client-side for proper cookie handling
+      console.log('[CLIENT] Attempting login...')
+      setIsLoading(true)
+
+      const loginAsync = async () => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (error) {
+          console.log('[CLIENT] Login failed:', error.message)
+          setIsLoading(false)
+          if (error.message.includes('Invalid login credentials')) {
+            setMessage({ type: 'error', text: 'Email ou senha incorretos.' })
+          } else {
+            setMessage({ type: 'error', text: error.message })
+          }
+        } else {
+          console.log('[CLIENT] Login successful!')
+          console.log('[CLIENT] Session:', data.session ? 'EXISTS' : 'NULL')
+          console.log('[CLIENT] User:', data.user?.id)
+
+          // Check cookies
+          console.log('[CLIENT] All cookies:', document.cookie)
+
+          // Wait a moment for cookies to be written
+          await new Promise(resolve => setTimeout(resolve, 500))
+
+          console.log('[CLIENT] Cookies after wait:', document.cookie)
+          console.log('[CLIENT] Now redirecting...')
+
+          // Force a full page reload
+          window.location.href = '/dashboard'
+        }
       }
+
+      loginAsync()
     }
   }
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setMessage(null)
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        shouldCreateUser: true,
-      },
-    })
-
-    setIsLoading(false)
-
-    if (error) {
-      if (error.message.includes('rate limit')) {
-        setMessage({ type: 'error', text: 'Muitas tentativas. Aguarde alguns minutos.' })
-      } else {
-        setMessage({ type: 'error', text: error.message })
-      }
-    } else {
-      setMessage({
-        type: 'success',
-        text: 'Link mágico enviado! Verifique seu email para fazer login.',
+    startTransition(async () => {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          shouldCreateUser: true,
+        },
       })
-      setEmail('')
-    }
+
+      if (error) {
+        if (error.message.includes('rate limit')) {
+          setMessage({ type: 'error', text: 'Muitas tentativas. Aguarde alguns minutos.' })
+        } else {
+          setMessage({ type: 'error', text: error.message })
+        }
+      } else {
+        setMessage({
+          type: 'success',
+          text: 'Link mágico enviado! Verifique seu email para fazer login.',
+        })
+        setEmail('')
+      }
+    })
   }
 
   const handleGoogleLogin = async () => {
@@ -131,6 +148,27 @@ export default function LoginPage() {
       setIsGoogleLoading(false)
       setMessage({ type: 'error', text: error.message })
     }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage(null)
+
+    startTransition(async () => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      })
+
+      if (error) {
+        setMessage({ type: 'error', text: error.message })
+      } else {
+        setMessage({
+          type: 'success',
+          text: 'Link de recuperação enviado! Verifique seu email para redefinir sua senha.',
+        })
+        setEmail('')
+      }
+    })
   }
 
   const resetForm = () => {
@@ -166,72 +204,90 @@ export default function LoginPage() {
         <Card className="border-border/50 backdrop-blur-sm bg-card/80">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-xl text-center">
-              {authMode === 'signup' ? 'Criar conta' : 'Bem-vindo de volta'}
+              {authMode === 'signup'
+                ? 'Criar conta'
+                : authMode === 'forgot-password'
+                ? 'Recuperar senha'
+                : 'Bem-vindo de volta'}
             </CardTitle>
             <CardDescription className="text-center">
-              {authMode === 'signup' 
+              {authMode === 'signup'
                 ? 'Preencha os dados para criar sua conta'
                 : authMode === 'magic-link'
                 ? 'Receba um link de acesso no seu email'
+                : authMode === 'forgot-password'
+                ? 'Digite seu email para receber o link de recuperação'
                 : 'Entre com seu email e senha'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Google Login */}
-            <Button
-              variant="outline"
-              className="w-full h-11 gap-2"
-              onClick={handleGoogleLogin}
-              disabled={isGoogleLoading || isLoading}
-            >
-              {isGoogleLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Chrome className="w-4 h-4" />
-              )}
-              Continuar com Google
-            </Button>
+            {/* Google Login - Ocultar em forgot-password */}
+            {authMode !== 'forgot-password' && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full h-11 gap-2"
+                  onClick={handleGoogleLogin}
+                  disabled={isGoogleLoading || isPending || isLoading}
+                >
+                  {isGoogleLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Chrome className="w-4 h-4" />
+                  )}
+                  Continuar com Google
+                </Button>
 
-            {/* Divisor */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  ou continue com email
-                </span>
-              </div>
-            </div>
+                {/* Divisor */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">
+                      ou continue com email
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Form */}
-            <form onSubmit={authMode === 'magic-link' ? handleMagicLink : handleEmailPasswordAuth} className="space-y-4">
+            <form onSubmit={
+              authMode === 'magic-link'
+                ? handleMagicLink
+                : authMode === 'forgot-password'
+                ? handleForgotPassword
+                : handleEmailPasswordAuth
+            } className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isPending || isGoogleLoading}
                   className="h-11"
                 />
               </div>
 
-              {authMode !== 'magic-link' && (
+              {authMode !== 'magic-link' && authMode !== 'forgot-password' && (
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
                   <div className="relative">
                     <Input
                       id="password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={isPending || isGoogleLoading}
                       className="h-11 pr-10"
                     />
                     <button
@@ -250,12 +306,13 @@ export default function LoginPage() {
                   <Label htmlFor="confirmPassword">Confirmar senha</Label>
                   <Input
                     id="confirmPassword"
+                    name="confirmPassword"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    disabled={isLoading || isGoogleLoading}
+                    disabled={isPending || isGoogleLoading}
                     className="h-11"
                   />
                 </div>
@@ -264,19 +321,21 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full h-11 gap-2"
-                disabled={isLoading || isGoogleLoading || !email || (authMode !== 'magic-link' && !password)}
+                disabled={isPending || isGoogleLoading || isLoading || !email || (authMode !== 'magic-link' && authMode !== 'forgot-password' && !password)}
               >
-                {isLoading ? (
+                {(isPending || isLoading) ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : authMode === 'magic-link' ? (
+                ) : authMode === 'magic-link' || authMode === 'forgot-password' ? (
                   <Mail className="w-4 h-4" />
                 ) : (
                   <Lock className="w-4 h-4" />
                 )}
-                {authMode === 'signup' 
-                  ? 'Criar conta' 
-                  : authMode === 'magic-link' 
+                {authMode === 'signup'
+                  ? 'Criar conta'
+                  : authMode === 'magic-link'
                   ? 'Enviar link mágico'
+                  : authMode === 'forgot-password'
+                  ? 'Enviar link de recuperação'
                   : 'Entrar'}
               </Button>
             </form>
@@ -298,6 +357,13 @@ export default function LoginPage() {
             <div className="space-y-2 pt-2">
               {authMode === 'login' && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('forgot-password'); resetForm() }}
+                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Esqueceu sua senha? <span className="text-blue-400 underline">Recuperar agora</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => { setAuthMode('magic-link'); resetForm() }}
@@ -330,6 +396,15 @@ export default function LoginPage() {
                   className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Prefere usar senha? <span className="text-blue-400 underline">Voltar ao login</span>
+                </button>
+              )}
+              {authMode === 'forgot-password' && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); resetForm() }}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Lembrou sua senha? <span className="text-blue-400 underline">Voltar ao login</span>
                 </button>
               )}
             </div>
