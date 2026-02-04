@@ -1,20 +1,90 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Mail, Loader2, Sparkles, Chrome } from 'lucide-react'
+import { Mail, Loader2, Sparkles, Chrome, Lock, Eye, EyeOff } from 'lucide-react'
+
+type AuthMode = 'login' | 'signup' | 'magic-link'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const supabase = createClient()
+
+  const handleEmailPasswordAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setMessage(null)
+
+    if (authMode === 'signup') {
+      // Validar senha
+      if (password.length < 6) {
+        setMessage({ type: 'error', text: 'A senha deve ter pelo menos 6 caracteres.' })
+        setIsLoading(false)
+        return
+      }
+
+      if (password !== confirmPassword) {
+        setMessage({ type: 'error', text: 'As senhas não coincidem.' })
+        setIsLoading(false)
+        return
+      }
+
+      // Criar conta
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      setIsLoading(false)
+
+      if (error) {
+        setMessage({ type: 'error', text: error.message })
+      } else {
+        setMessage({
+          type: 'success',
+          text: 'Conta criada! Verifique seu email para confirmar o cadastro.',
+        })
+        setEmail('')
+        setPassword('')
+        setConfirmPassword('')
+      }
+    } else {
+      // Login
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      setIsLoading(false)
+
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setMessage({ type: 'error', text: 'Email ou senha incorretos.' })
+        } else {
+          setMessage({ type: 'error', text: error.message })
+        }
+      } else {
+        router.push('/dashboard')
+      }
+    }
+  }
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,13 +95,18 @@ export default function LoginPage() {
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: true,
       },
     })
 
     setIsLoading(false)
 
     if (error) {
-      setMessage({ type: 'error', text: error.message })
+      if (error.message.includes('rate limit')) {
+        setMessage({ type: 'error', text: 'Muitas tentativas. Aguarde alguns minutos.' })
+      } else {
+        setMessage({ type: 'error', text: error.message })
+      }
     } else {
       setMessage({
         type: 'success',
@@ -56,6 +131,13 @@ export default function LoginPage() {
       setIsGoogleLoading(false)
       setMessage({ type: 'error', text: error.message })
     }
+  }
+
+  const resetForm = () => {
+    setEmail('')
+    setPassword('')
+    setConfirmPassword('')
+    setMessage(null)
   }
 
   return (
@@ -83,9 +165,15 @@ export default function LoginPage() {
         {/* Card de Login */}
         <Card className="border-border/50 backdrop-blur-sm bg-card/80">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl text-center">Bem-vindo de volta</CardTitle>
+            <CardTitle className="text-xl text-center">
+              {authMode === 'signup' ? 'Criar conta' : 'Bem-vindo de volta'}
+            </CardTitle>
             <CardDescription className="text-center">
-              Entre com seu email ou conta Google
+              {authMode === 'signup' 
+                ? 'Preencha os dados para criar sua conta'
+                : authMode === 'magic-link'
+                ? 'Receba um link de acesso no seu email'
+                : 'Entre com seu email e senha'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -116,8 +204,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Magic Link Form */}
-            <form onSubmit={handleMagicLink} className="space-y-4">
+            {/* Form */}
+            <form onSubmit={authMode === 'magic-link' ? handleMagicLink : handleEmailPasswordAuth} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -132,17 +220,64 @@ export default function LoginPage() {
                 />
               </div>
 
+              {authMode !== 'magic-link' && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isLoading || isGoogleLoading}
+                      className="h-11 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {authMode === 'signup' && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                  <Input
+                    id="confirmPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    disabled={isLoading || isGoogleLoading}
+                    className="h-11"
+                  />
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-11 gap-2"
-                disabled={isLoading || isGoogleLoading || !email}
+                disabled={isLoading || isGoogleLoading || !email || (authMode !== 'magic-link' && !password)}
               >
                 {isLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
+                ) : authMode === 'magic-link' ? (
                   <Mail className="w-4 h-4" />
+                ) : (
+                  <Lock className="w-4 h-4" />
                 )}
-                Enviar link mágico
+                {authMode === 'signup' 
+                  ? 'Criar conta' 
+                  : authMode === 'magic-link' 
+                  ? 'Enviar link mágico'
+                  : 'Entrar'}
               </Button>
             </form>
 
@@ -158,6 +293,46 @@ export default function LoginPage() {
                 {message.text}
               </div>
             )}
+
+            {/* Toggle entre modos */}
+            <div className="space-y-2 pt-2">
+              {authMode === 'login' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('magic-link'); resetForm() }}
+                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Prefere login sem senha? <span className="text-blue-400 underline">Usar link mágico</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('signup'); resetForm() }}
+                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Não tem uma conta? <span className="text-blue-400 underline">Criar agora</span>
+                  </button>
+                </>
+              )}
+              {authMode === 'signup' && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); resetForm() }}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Já tem uma conta? <span className="text-blue-400 underline">Fazer login</span>
+                </button>
+              )}
+              {authMode === 'magic-link' && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); resetForm() }}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Prefere usar senha? <span className="text-blue-400 underline">Voltar ao login</span>
+                </button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
