@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { ArrowLeft, CheckCircle, FileText, Upload, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle, FileText, Upload, X, ArrowRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // Placeholder for file type validation
 const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -110,14 +111,17 @@ export function Step4Upload({ onFinish, onBack }: { onFinish: (file: File | null
           </Button>
           
           <div className="flex gap-2">
-            {!file && (
-              <Button variant="ghost" className="text-muted-foreground" onClick={() => onFinish(null)}>
-                Pular
-              </Button>
-            )}
-            <Button onClick={() => onFinish(file)} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 transition-opacity" disabled={!file}>
+            <Button 
+              onClick={() => onFinish(file)} 
+              className={cn(
+                "gap-2 transition-all", 
+                file 
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 text-white" 
+                  : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+              )}
+            >
               {file ? 'Finalizar e Analisar' : 'Pular por enquanto'}
-              <CheckCircle className="w-4 h-4" />
+              {file ? <CheckCircle className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
             </Button>
           </div>
         </div>

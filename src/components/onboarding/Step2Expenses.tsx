@@ -58,7 +58,14 @@ export function Step2Expenses({ onNext, onBack }: { onNext: () => void, onBack: 
               </p>
             </div>
             <div className="text-right text-xs text-muted-foreground">
-              <p>Renda: R$ {estimatedIncome.toLocaleString('pt-BR')}</p>
+              <div className="flex items-center justify-end gap-2 mb-1">
+                <span>Renda: R$</span>
+                <Input 
+                  type="number"
+                  {...register('estimated_income', { valueAsNumber: true })}
+                  className="h-6 w-24 text-right px-1 py-0 text-xs border-dashed focus:border-solid bg-transparent"
+                />
+              </div>
               <p>Fixos: - R$ {totalFixed.toLocaleString('pt-BR')}</p>
             </div>
           </CardContent>

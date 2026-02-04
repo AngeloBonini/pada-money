@@ -4,14 +4,27 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OnboardingFormData } from './types'
-import { ArrowRight, Calendar, DollarSign, Wallet } from 'lucide-react'
+import { ArrowRight, Calendar as CalendarIcon, DollarSign, Wallet } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export function Step1Income({ onNext }: { onNext: () => void }) {
-  const { register, formState: { errors }, watch } = useFormContext<OnboardingFormData>()
+  const { register, formState: { errors }, watch, setValue } = useFormContext<OnboardingFormData>()
   
-  // Basic masking for currency display could be added here
-  
+  const payday = watch('payday')
+  // Construct a date object for the calendar if payday exists (assuming current month for display)
+  const dateValue = payday ? new Date(new Date().getFullYear(), new Date().getMonth(), payday) : undefined
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setValue('payday', date.getDate(), { shouldValidate: true })
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -33,7 +46,7 @@ export function Step1Income({ onNext }: { onNext: () => void }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               { value: 'salary', label: 'Salário Fixo', icon: Wallet },
-              { value: 'freelance', label: 'Freelancer', icon: SparklesIcon }, // Fallback to generic if simplified
+              { value: 'freelance', label: 'Freelancer', icon: SparklesIcon },
               { value: 'mixed', label: 'Misto', icon: DollarSign },
             ].map((option) => (
               <label
@@ -62,21 +75,42 @@ export function Step1Income({ onNext }: { onNext: () => void }) {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Payday */}
-          <div className="space-y-2">
-            <Label htmlFor="payday">Dia do Recebimento (aprox.)</Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-              <Input
-                id="payday"
-                type="number"
-                placeholder="Ex: 05"
-                min={1}
-                max={31}
-                className="pl-10"
-                {...register('payday')}
-              />
-            </div>
+          {/* Payday - DatePicker */}
+          <div className="space-y-2 flex flex-col">
+            <Label>Dia do Recebimento</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full pl-3 text-left font-normal",
+                    !payday && "text-muted-foreground"
+                  )}
+                >
+                  {/* Keep hidden input for validation registration if needed, or rely on setValue */}
+                  <input type="hidden" {...register('payday')} />
+                  
+                  {payday ? (
+                    <span>Dia {payday}</span>
+                  ) : (
+                    <span>Selecione o dia</span>
+                  )}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateValue}
+                  onSelect={handleDateSelect}
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              Selecione uma data aproximada. Usaremos apenas o dia.
+            </p>
             {errors.payday && (
               <p className="text-sm text-red-400">{errors.payday.message}</p>
             )}
@@ -89,7 +123,7 @@ export function Step1Income({ onNext }: { onNext: () => void }) {
               <span className="absolute left-3 top-2.5 text-muted-foreground font-semibold">R$</span>
               <Input
                 id="estimated_income"
-                type="text"
+                type="number"
                 placeholder="0,00"
                 className="pl-10"
                 {...register('estimated_income')}
