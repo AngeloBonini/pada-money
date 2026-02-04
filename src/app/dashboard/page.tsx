@@ -1,34 +1,33 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getSession } from '@/lib/auth/session'
+import { findUserById, getSafeUser, getProfile } from '@/lib/auth/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LogOut, Upload, TrendingUp, Sparkles } from 'lucide-react'
-import type { Profile } from '@/lib/database.types'
+import { cookies } from 'next/headers'
 
 async function signOut() {
   'use server'
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+  const cookieStore = await cookies()
+  cookieStore.set('session', '', { maxAge: 0, path: '/' })
   redirect('/login')
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+  const session = await getSession()
 
+  if (!session) {
+    redirect('/login')
+  }
+
+  const user = await findUserById(session.userId)
+  
   if (!user) {
     redirect('/login')
   }
 
-  // Buscar perfil do usuário
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-  
-  const profile = profileData as Profile | null
+  const safeUser = getSafeUser(user)
+  const profile = await getProfile(session.userId)
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,7 +43,7 @@ export default async function DashboardPage() {
           
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:block">
-              {profile?.email || user.email}
+              {safeUser.email}
             </span>
             <form action={signOut}>
               <Button variant="ghost" size="sm" className="gap-2">
@@ -62,7 +61,7 @@ export default async function DashboardPage() {
           {/* Welcome Section */}
           <div className="space-y-2">
             <h1 className="text-3xl font-bold">
-              Olá, {profile?.full_name || 'Usuário'}! 👋
+              Olá, {profile?.full_name || safeUser.name || 'Usuário'}! 👋
             </h1>
             <p className="text-muted-foreground">
               Bem-vindo ao seu painel financeiro inteligente.
