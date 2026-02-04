@@ -16,7 +16,13 @@ import { Step4Upload } from './Step4Upload'
 import { onboardingSchema, type OnboardingFormData } from './types'
 import { useProfile } from '@/context/ProfileContext'
 
-export function OnboardingWizard({ userId }: { userId: string }) {
+interface OnboardingWizardProps {
+  userId: string
+  initialData?: Partial<OnboardingFormData>
+  hasExistingData?: boolean
+}
+
+export function OnboardingWizard({ userId, initialData, hasExistingData }: OnboardingWizardProps) {
   const [step, setStep] = useState(1)
   const router = useRouter()
   const { refetchProfile } = useProfile()
@@ -29,8 +35,11 @@ export function OnboardingWizard({ userId }: { userId: string }) {
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema) as any,
     defaultValues: {
-      income_type: undefined,
-      fixed_expenses: [],
+      income_type: initialData?.income_type,
+      payday: initialData?.payday,
+      estimated_income: initialData?.estimated_income,
+      main_goal: initialData?.main_goal,
+      fixed_expenses: initialData?.fixed_expenses || [],
     },
     mode: 'onChange'
   })
@@ -75,7 +84,21 @@ export function OnboardingWizard({ userId }: { userId: string }) {
           throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
         }
 
-        // 2. Insert Recurring Transactions
+        // 2. Handle Fixed Expenses - Delete existing and insert new
+        // First, delete existing recurring transactions if updating
+        if (hasExistingData) {
+          const { error: deleteError } = await supabase
+            .from('recurring_transactions')
+            .delete()
+            .eq('user_id', userId)
+
+          if (deleteError) {
+            console.error('Recurring transactions delete error:', deleteError)
+            // Don't throw, continue with insert
+          }
+        }
+
+        // Then insert recurring transactions
         if (data.fixed_expenses.length > 0) {
           const expensesToInsert = data.fixed_expenses.map(exp => ({
             user_id: userId,

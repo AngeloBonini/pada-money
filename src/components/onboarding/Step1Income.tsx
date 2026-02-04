@@ -7,9 +7,8 @@ import { CardContent, CardHeader, CardTitle, CardDescription } from '@/component
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OnboardingFormData } from './types'
-import { ArrowRight, Calendar as CalendarIcon, DollarSign, Wallet } from 'lucide-react'
+import { ArrowRight, Calendar as CalendarIcon, DollarSign, Wallet, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export function Step1Income({ onNext }: { onNext: () => void }) {
@@ -46,7 +45,7 @@ export function Step1Income({ onNext }: { onNext: () => void }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               { value: 'salary', label: 'Salário Fixo', icon: Wallet },
-              { value: 'freelance', label: 'Freelancer', icon: SparklesIcon },
+              { value: 'freelance', label: 'Freelancer', icon: Sparkles },
               { value: 'mixed', label: 'Misto', icon: DollarSign },
             ].map((option) => (
               <label
@@ -146,25 +145,5 @@ export function Step1Income({ onNext }: { onNext: () => void }) {
         </div>
       </CardContent>
     </motion.div>
-  )
-}
-
-// Icon helper
-function SparklesIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-    </svg>
   )
 }

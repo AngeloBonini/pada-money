@@ -59,6 +59,7 @@ export default async function DashboardPage() {
     // redirect('/onboarding')
   }
 
+  // Fetch real data
   return (
     <FinancialProvider>
       <main className="container max-w-6xl mx-auto p-4 space-y-8 pb-20">
