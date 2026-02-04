@@ -15,7 +15,13 @@ import { Step3Goal } from './Step3Goal'
 import { Step4Upload } from './Step4Upload'
 import { onboardingSchema, type OnboardingFormData } from './types'
 
-export function OnboardingWizard({ userId }: { userId: string }) {
+interface OnboardingWizardProps {
+  userId: string
+  initialData?: Partial<OnboardingFormData>
+  hasExistingData?: boolean
+}
+
+export function OnboardingWizard({ userId, initialData, hasExistingData }: OnboardingWizardProps) {
   const [step, setStep] = useState(1)
   const router = useRouter()
   const supabase = createBrowserClient(
@@ -26,8 +32,11 @@ export function OnboardingWizard({ userId }: { userId: string }) {
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema) as any, // Bypass strict type checking for transform fields
     defaultValues: {
-      income_type: undefined,
-      fixed_expenses: [],
+      income_type: initialData?.income_type,
+      payday: initialData?.payday,
+      estimated_income: initialData?.estimated_income,
+      main_goal: initialData?.main_goal,
+      fixed_expenses: initialData?.fixed_expenses || [],
     },
     mode: 'onChange'
   })
@@ -74,7 +83,21 @@ export function OnboardingWizard({ userId }: { userId: string }) {
           throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
         }
 
-        // 2. Insert Fixed Expenses
+        // 2. Handle Fixed Expenses - Delete existing and insert new
+        // First, delete existing expenses if updating
+        if (hasExistingData) {
+          const { error: deleteError } = await supabase
+            .from('recurring_expenses')
+            .delete()
+            .eq('user_id', userId)
+
+          if (deleteError) {
+            console.error('Expenses delete error:', deleteError)
+            // Don't throw, continue with insert
+          }
+        }
+
+        // Then insert all expenses
         if (data.fixed_expenses.length > 0) {
           const expensesToInsert = data.fixed_expenses.map(exp => ({
             user_id: userId,

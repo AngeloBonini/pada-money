@@ -14,6 +14,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      users: {
+        Row: {
+          id: string
+          email: string
+          password_hash: string
+          name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          password_hash: string
+          name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          password_hash?: string
+          name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       insights: {
         Row: {
           content: string
@@ -215,6 +242,12 @@ export type RecurringExpense = Database['public']['Tables']['recurring_expenses'
 export type RecurringExpenseInsert = Database['public']['Tables']['recurring_expenses']['Insert']
 export type RecurringExpenseUpdate = Database['public']['Tables']['recurring_expenses']['Update']
 
+// User types
+export type User = Database['public']['Tables']['users']['Row']
+export type UserInsert = Database['public']['Tables']['users']['Insert']
+export type UserUpdate = Database['public']['Tables']['users']['Update']
+
 export type SubscriptionStatus = 'active' | 'free' | 'past_due'
 export type TransactionType = 'income' | 'expense'
 export type InsightSentiment = 'positive' | 'neutral' | 'warning'
+export type IncomeType = 'salary' | 'freelance' | 'mixed'

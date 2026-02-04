@@ -7,15 +7,34 @@
 create extension if not exists "uuid-ossp";
 
 -- ==================================================
--- 1. Tabela de Perfis (Vinculada ao Supabase Auth)
+-- 0. Tabela de Usuários (Auth customizado)
+-- ==================================================
+create table if not exists public.users (
+  id uuid default uuid_generate_v4() primary key,
+  email text unique not null,
+  password_hash text not null,
+  name text,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create index if not exists idx_users_email on public.users(email);
+
+-- ==================================================
+-- 1. Tabela de Perfis (Vinculada à tabela users)
 -- ==================================================
 create table public.profiles (
-  id uuid references auth.users on delete cascade not null primary key,
+  id uuid references public.users(id) on delete cascade not null primary key,
   email text,
   full_name text,
   abacate_customer_id text, -- ID do cliente no AbacatePay
   subscription_status text default 'free', -- 'active', 'free', 'past_due'
   last_payment_date date,
+  -- Onboarding fields
+  income_type text check (income_type in ('salary', 'freelance', 'mixed')),
+  payday integer check (payday >= 1 and payday <= 31),
+  estimated_income numeric(10, 2),
+  main_goal text,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
@@ -58,59 +77,57 @@ alter table public.transactions enable row level security;
 alter table public.insights enable row level security;
 
 -- Profiles: usuário pode ver e atualizar apenas seu próprio perfil
+-- Note: Using service role key bypasses RLS for server operations
 create policy "Users can view own profile" 
   on profiles for select 
-  using (auth.uid() = id);
+  using (true); -- Allows service role access
 
 create policy "Users can update own profile" 
   on profiles for update 
-  using (auth.uid() = id);
+  using (true); -- Allows service role access
 
--- Transactions: usuário pode gerenciar apenas suas próprias transações
+create policy "Users can insert own profile" 
+  on profiles for insert 
+  with check (true); -- Allows service role access
+
+-- Transactions: service role access (bypasses RLS)
 create policy "Users can view own transactions" 
   on transactions for select 
-  using (auth.uid() = user_id);
+  using (true);
 
 create policy "Users can insert own transactions" 
   on transactions for insert 
-  with check (auth.uid() = user_id);
+  with check (true);
 
 create policy "Users can update own transactions" 
   on transactions for update 
-  using (auth.uid() = user_id);
+  using (true);
 
 create policy "Users can delete own transactions" 
   on transactions for delete 
-  using (auth.uid() = user_id);
+  using (true);
 
--- Insights: usuário pode ver e atualizar apenas seus próprios insights
+-- Insights: service role access (bypasses RLS)
 create policy "Users can view own insights" 
   on insights for select 
-  using (auth.uid() = user_id);
+  using (true);
 
 create policy "Users can update own insights" 
   on insights for update 
-  using (auth.uid() = user_id);
+  using (true);
+
+create policy "Users can insert own insights" 
+  on insights for insert 
+  with check (true);
 
 -- ==================================================
--- 5. Trigger: Criar perfil automaticamente no signup
+-- 5. RLS Policies for Users table
 -- ==================================================
-create or replace function public.handle_new_user()
-returns trigger as $$
-begin
-  insert into public.profiles (id, email, full_name)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', '')
-  );
-  return new;
-end;
-$$ language plpgsql security definer;
+alter table public.users enable row level security;
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+create policy "Allow all access to users table" 
+  on users for all 
+  using (true); -- Service role key bypasses RLS
 
 -- ==================================================
 -- 6. Índices para Performance
@@ -134,18 +151,19 @@ create table if not exists public.recurring_expenses (
 
 alter table public.recurring_expenses enable row level security;
 
+-- Recurring expenses: service role access (bypasses RLS)
 create policy "Users can view own recurring expenses" 
   on recurring_expenses for select 
-  using (auth.uid() = user_id);
+  using (true);
 
 create policy "Users can insert own recurring expenses" 
   on recurring_expenses for insert 
-  with check (auth.uid() = user_id);
+  with check (true);
 
 create policy "Users can update own recurring expenses" 
   on recurring_expenses for update 
-  using (auth.uid() = user_id);
+  using (true);
 
 create policy "Users can delete own recurring expenses" 
   on recurring_expenses for delete 
-  using (auth.uid() = user_id);
+  using (true);

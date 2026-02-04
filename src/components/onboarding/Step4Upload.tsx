@@ -1,15 +1,9 @@
 import { useRef, useState } from 'react'
-// Trigger HMR update
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ArrowLeft, CheckCircle, FileText, Upload, X, ArrowRight } from 'lucide-react'
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+import { cn } from '@/lib/utils'
 
 
 // Placeholder for file type validation
