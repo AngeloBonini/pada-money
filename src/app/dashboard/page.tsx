@@ -5,6 +5,8 @@ import { FinancialProvider } from '@/context/FinancialContext'
 import { DashboardSummary } from '@/components/features/financial/DashboardSummary'
 import { RecurringList } from '@/components/features/financial/RecurringList'
 import { TransactionForm } from '@/components/features/financial/TransactionForm'
+import { DailyLedger } from '@/components/features/financial/DailyLedger'
+import { MigrationDebug } from '@/components/debug/MigrationDebug'
 
 export default async function DashboardPage() {
   const cookieStore = cookies()
@@ -72,16 +74,18 @@ export default async function DashboardPage() {
         </header>
 
         {/* Financial Summary Cards */}
+        <MigrationDebug />
         <DashboardSummary />
 
         <div className="grid gap-6 md:grid-cols-3">
           {/* Main Content: 2/3 width */}
           <div className="md:col-span-2 space-y-6">
-            <RecurringList />
+            <DailyLedger />
           </div>
 
           {/* Sidebar: 1/3 width */}
           <div className="space-y-6">
+            <RecurringList />
             <TransactionForm />
           </div>
         </div>

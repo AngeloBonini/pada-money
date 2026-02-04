@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, PlusCircle } from 'lucide-react'
 
 const transactionSchema = z.object({
@@ -18,10 +19,11 @@ const transactionSchema = z.object({
   amount: z.string().transform((val) => parseFloat(val.replace(',', '.'))).or(z.number()),
   type: z.enum(['income', 'expense']),
   category: z.string().optional(),
-  date: z.string().min(1, 'Data obrigatória') // YYYY-MM-DD
+  date: z.string().min(1, 'Data obrigatória'), // YYYY-MM-DD
+  isRecurring: z.boolean().optional().default(false)
 })
 
-type TransactionFormData = z.infer<typeof transactionSchema>
+type TransactionFormSchema = z.infer<typeof transactionSchema>
 
 export function TransactionForm() {
   const { refreshData } = useFinancialData()
@@ -31,15 +33,20 @@ export function TransactionForm() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  const { register, handleSubmit, reset, setValue } = useForm<TransactionFormData>({
+  // Use z.input<typeof transactionSchema> for the form values to allow strings before transformation
+  const { register, handleSubmit, reset, setValue, watch } = useForm<z.input<typeof transactionSchema>>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       type: 'expense',
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      isRecurring: false
     }
   })
 
-  const onSubmit = async (data: TransactionFormData) => {
+  // Watch recurring to show extra feedback if needed
+  const isRecurring = watch('isRecurring')
+
+  const onSubmit = async (data: TransactionFormSchema) => {
     setIsSubmitting(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -56,6 +63,24 @@ export function TransactionForm() {
       })
 
       if (error) throw error
+
+      // If recurring, also insert into recurring_transactions
+      if (data.isRecurring) {
+        const day = parseInt(data.date.split('-')[2], 10)
+        
+        const { error: reqError } = await supabase.from('recurring_transactions').insert({
+          user_id: user.id,
+          description: data.description,
+          amount: data.amount,
+          type: data.type,
+          frequency: 'monthly',
+          due_day: day,
+          category: data.category || 'Outros',
+          is_active: true
+        })
+        
+        if (reqError) throw reqError
+      }
       
       reset()
       await refreshData()
@@ -73,7 +98,7 @@ export function TransactionForm() {
         <CardTitle className="text-lg">Novo Lançamento</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div className="space-y-2">
             <Label>Descrição</Label>
             <Input {...register('description')} placeholder="Ex: Mercado, Uber..." />
@@ -101,6 +126,17 @@ export function TransactionForm() {
           <div className="space-y-2">
             <Label>Data</Label>
             <Input {...register('date')} type="date" />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="recurring" 
+              checked={isRecurring}
+              onCheckedChange={(checked) => setValue('isRecurring', checked as boolean)} 
+            />
+            <Label htmlFor="recurring" className="font-normal cursor-pointer">
+              É uma conta fixa/recorrente?
+            </Label>
           </div>
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
