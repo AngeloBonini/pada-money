@@ -29,6 +29,11 @@ export default async function DashboardPage() {
   const safeUser = getSafeUser(user)
   const profile = await getProfile(session.userId)
 
+  // Redirect to onboarding if profile is incomplete
+  if (!profile?.income_type || !profile?.main_goal) {
+    redirect('/onboarding')
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

@@ -1,6 +1,6 @@
 /**
  * Database Types para Supabase
- * Gerado baseado no schema.sql do projeto
+ * Gerado via Supabase CLI
  */
 
 export type Json =
@@ -14,6 +14,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      insights: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          sentiment: 'positive' | 'neutral' | 'warning' | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sentiment?: 'positive' | 'neutral' | 'warning' | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sentiment?: 'positive' | 'neutral' | 'warning' | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       profiles: {
         Row: {
           id: string
@@ -24,6 +62,10 @@ export type Database = {
           last_payment_date: string | null
           created_at: string
           updated_at: string
+          income_type: 'salary' | 'freelance' | 'mixed' | null
+          payday: number | null
+          estimated_income: number | null
+          main_goal: string | null
         }
         Insert: {
           id: string
@@ -34,6 +76,10 @@ export type Database = {
           last_payment_date?: string | null
           created_at?: string
           updated_at?: string
+          income_type?: 'salary' | 'freelance' | 'mixed' | null
+          payday?: number | null
+          estimated_income?: number | null
+          main_goal?: string | null
         }
         Update: {
           id?: string
@@ -44,8 +90,47 @@ export type Database = {
           last_payment_date?: string | null
           created_at?: string
           updated_at?: string
+          income_type?: 'salary' | 'freelance' | 'mixed' | null
+          payday?: number | null
+          estimated_income?: number | null
+          main_goal?: string | null
         }
         Relationships: []
+      }
+      recurring_expenses: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          amount: number
+          category: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          amount: number
+          category?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          amount?: number
+          category?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       transactions: {
         Row: {
@@ -89,49 +174,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'transactions_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          }
-        ]
-      }
-      insights: {
-        Row: {
-          id: string
-          user_id: string
-          title: string
-          content: string
-          sentiment: 'positive' | 'neutral' | 'warning' | null
-          is_read: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          title: string
-          content: string
-          sentiment?: 'positive' | 'neutral' | 'warning' | null
-          is_read?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          title?: string
-          content?: string
-          sentiment?: 'positive' | 'neutral' | 'warning' | null
-          is_read?: boolean
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'insights_user_id_fkey'
-            columns: ['user_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           }
         ]
       }
@@ -163,6 +210,10 @@ export type TransactionUpdate = Database['public']['Tables']['transactions']['Up
 export type Insight = Database['public']['Tables']['insights']['Row']
 export type InsightInsert = Database['public']['Tables']['insights']['Insert']
 export type InsightUpdate = Database['public']['Tables']['insights']['Update']
+
+export type RecurringExpense = Database['public']['Tables']['recurring_expenses']['Row']
+export type RecurringExpenseInsert = Database['public']['Tables']['recurring_expenses']['Insert']
+export type RecurringExpenseUpdate = Database['public']['Tables']['recurring_expenses']['Update']
 
 export type SubscriptionStatus = 'active' | 'free' | 'past_due'
 export type TransactionType = 'income' | 'expense'
