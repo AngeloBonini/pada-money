@@ -12,6 +12,9 @@ dist
 # Testing
 coverage
 
+# Supabase
+supabase/
+supabase/.temp
 # Environment files
 .env
 .env.local

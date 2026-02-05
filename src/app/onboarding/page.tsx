@@ -1,39 +1,23 @@
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getSession } from '@/lib/auth/session'
+import { getProfile } from '@/lib/auth/store'
+import { supabase } from '@/lib/db'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 
 export default async function OnboardingPage() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
-
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getSession()
 
   if (!session) {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
   // Load existing profile and expenses data for editing
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', session.user.id)
-    .single()
+  const profile = await getProfile(session.userId)
   
   const { data: expenses } = await supabase
     .from('recurring_expenses')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', session.userId)
 
   // Transform expenses to match form format
   const existingExpenses = (expenses || []).map(e => ({
@@ -66,7 +50,7 @@ export default async function OnboardingPage() {
         </div>
         
         <OnboardingWizard 
-          userId={session.user.id} 
+          userId={session.userId} 
           initialData={initialData}
           hasExistingData={!!initialData?.income_type}
         />

@@ -382,6 +382,27 @@ export type User = Database['public']['Tables']['users']['Row']
 export type UserInsert = Database['public']['Tables']['users']['Insert']
 export type UserUpdate = Database['public']['Tables']['users']['Update']
 
+// Profile types
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
+
+// Transaction types
+export type Transaction = Database['public']['Tables']['transactions']['Row']
+export type TransactionInsert = Database['public']['Tables']['transactions']['Insert']
+
+// Recurring Expense types
+export type RecurringExpense = Database['public']['Tables']['recurring_expenses']['Row']
+export type RecurringExpenseInsert = Database['public']['Tables']['recurring_expenses']['Insert']
+
+// Recurring Transaction types
+export type RecurringTransaction = Database['public']['Tables']['recurring_transactions']['Row']
+export type RecurringTransactionInsert = Database['public']['Tables']['recurring_transactions']['Insert']
+
+// Insight types
+export type Insight = Database['public']['Tables']['insights']['Row']
+export type InsightInsert = Database['public']['Tables']['insights']['Insert']
+
 export type SubscriptionStatus = 'active' | 'free' | 'past_due'
 export type TransactionType = 'income' | 'expense'
 export type InsightSentiment = 'positive' | 'neutral' | 'warning'

@@ -1,12 +1,12 @@
 'use client'
 
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Database, Tables } from '@/lib/database.types'
 
 type Transaction = Tables<'transactions'>
 type RecurringTransaction = Tables<'recurring_transactions'>
+type Profile = Tables<'profiles'>
 
 export interface ProjectedTransaction {
   id: string
@@ -26,16 +26,23 @@ interface FinancialContextType {
   projectedTransactions: ProjectedTransaction[]
   balance: number
   monthlyFixedExpenses: number
+  monthlyIncome: number
   projectedBalance: number
   loading: boolean
   refreshData: () => Promise<void>
 }
 
+interface FinancialProviderProps {
+  children: React.ReactNode
+  userId: string
+}
+
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined)
 
-export function FinancialProvider({ children }: { children: React.ReactNode }) {
+export function FinancialProvider({ children, userId }: FinancialProviderProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([])
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   
   const supabase = createBrowserClient<Database>(
@@ -46,11 +53,16 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const refreshData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      // Fetch Profile (for estimated_income)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      
+      setProfile(profileData)
 
-      // Fetch Transactions (Current Month to Date ideally, but fetching all for now)
-      // TODO: Filter by month in the query for scalability
+      // Fetch Transactions (Current Month)
       const now = new Date()
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
@@ -58,7 +70,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       const { data: txData, error: txError } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .gte('date', firstDay)
         .lte('date', lastDay)
         .order('date', { ascending: false })
@@ -70,7 +82,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       const { data: recData, error: recError } = await supabase
         .from('recurring_transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_active', true)
       
       if (recError) throw recError
@@ -81,17 +93,23 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, userId])
 
   useEffect(() => {
     refreshData()
   }, [refreshData])
 
   // Computed Values
+  
+  // Monthly income from profile (estimated_income)
+  const monthlyIncome = Number(profile?.estimated_income) || 0
+
+  // Current balance from actual transactions this month
   const balance = transactions.reduce((acc, curr) => {
     return curr.type === 'income' ? acc + Number(curr.amount) : acc - Number(curr.amount)
   }, 0)
 
+  // Total monthly fixed expenses from recurring transactions
   const monthlyFixedExpenses = recurringTransactions
     .filter(t => t.type === 'expense' && t.frequency === 'monthly')
     .reduce((acc, curr) => acc + Number(curr.amount), 0)
@@ -101,40 +119,54 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
+  const currentDay = now.getDate()
 
+  // Add estimated income as a projected transaction if no income transactions this month
+  const hasReceivedIncome = transactions.some(t => t.type === 'income')
+  const payday = profile?.payday || 1
+  
+  if (!hasReceivedIncome && monthlyIncome > 0) {
+    const incomeDate = new Date(currentYear, currentMonth, payday)
+    projectedTransactions.push({
+      id: 'proj-salary',
+      user_id: userId,
+      description: 'Renda Mensal',
+      amount: monthlyIncome,
+      type: 'income',
+      date: incomeDate.toISOString().split('T')[0],
+      category: 'income',
+      isProjected: true
+    })
+  }
+
+  // Add recurring expenses that haven't been paid yet
   recurringTransactions.forEach(rec => {
-      // Logic: For each recurring transaction, check if it already "happened" in the transactions list
-      // We match loosely by description and approximate amount? Or just Description and Month?
-      // "Simple" User Logic: If I have a recurring "Spotify", and I see a "Spotify" transaction this month, it's paid.
-      
-      const exists = transactions.some(t => {
-          const tDate = new Date(t.date)
-          return t.description.toLowerCase().includes(rec.description.toLowerCase()) || 
-                 rec.description.toLowerCase().includes(t.description.toLowerCase())
+    // Check if this recurring transaction already happened this month
+    const exists = transactions.some(t => {
+      return t.description.toLowerCase().includes(rec.description.toLowerCase()) || 
+             rec.description.toLowerCase().includes(t.description.toLowerCase())
+    })
+
+    if (!exists) {
+      const dueDate = new Date(currentYear, currentMonth, rec.due_day)
+      const dateStr = dueDate.toISOString().split('T')[0]
+
+      projectedTransactions.push({
+        id: `proj-${rec.id}`,
+        user_id: rec.user_id,
+        description: rec.description,
+        amount: Number(rec.amount),
+        type: rec.type as 'income' | 'expense',
+        date: dateStr,
+        category: rec.category,
+        isProjected: true
       })
-
-      if (!exists) {
-          // If due day is passed, it's late. If future, it's coming.
-          // Construct the date for this month
-          const dueDate = new Date(currentYear, currentMonth, rec.due_day)
-          const dateStr = dueDate.toISOString().split('T')[0] // YYYY-MM-DD
-
-          projectedTransactions.push({
-              id: `proj-${rec.id}`,
-              user_id: rec.user_id, // ensure user_id is in recurring schema
-              description: rec.description,
-              amount: Number(rec.amount),
-              type: rec.type as 'income' | 'expense',
-              date: dateStr,
-              category: rec.category,
-              isProjected: true
-          })
-      }
+    }
   })
 
-  // Projected Balance = Current Balance + (Projected Income - Projected Expenses)
+  // Projected Balance = Current Balance + Projected Income - Projected Expenses
   const projectedBalance = balance + projectedTransactions.reduce((acc, curr) => {
-      return curr.type === 'income' ? acc + Number(curr.amount) : acc - Number(curr.amount)
+    return curr.type === 'income' ? acc + Number(curr.amount) : acc - Number(curr.amount)
   }, 0)
 
   return (
@@ -144,6 +176,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       projectedTransactions,
       balance,
       monthlyFixedExpenses,
+      monthlyIncome,
       projectedBalance,
       loading,
       refreshData
