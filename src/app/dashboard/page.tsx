@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getSession } from '@/lib/auth/session'
+import { findUserById, getSafeUser, getProfile } from '@/lib/auth/store'
 import { FinancialProvider } from '@/context/FinancialContext'
+import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { DashboardSummary } from '@/components/features/financial/DashboardSummary'
 import { RecurringList } from '@/components/features/financial/RecurringList'
 import { TransactionForm } from '@/components/features/financial/TransactionForm'
@@ -9,31 +10,22 @@ import { DailyLedger } from '@/components/features/financial/DailyLedger'
 import { MigrationDebug } from '@/components/debug/MigrationDebug'
 
 export default async function DashboardPage() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
-
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getSession()
 
   if (!session) {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
+  const user = await findUserById(session.userId)
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  const safeUser = getSafeUser(user)
+
   // Check if profile is complete (Onboarding check)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('income_type, main_goal, full_name')
-    .eq('id', session.user.id)
-    .single()
+  const profile = await getProfile(session.userId)
 
   // DEBUGGING: Log profile state
   console.log('Dashboard Profile Check:', profile)
@@ -59,37 +51,40 @@ export default async function DashboardPage() {
     // redirect('/onboarding')
   }
 
+  // Fetch real data
   return (
-    <FinancialProvider>
-      <main className="container max-w-6xl mx-auto p-4 space-y-8 pb-20">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-              Olá, {profile.full_name?.split(' ')[0] || 'Investidor'}
-            </h1>
-            <p className="text-muted-foreground">
-              Visão geral do seu fluxo de caixa.
-            </p>
-          </div>
-        </header>
+    <DashboardLayout userEmail={safeUser.email} userName={profile?.full_name}>
+      <FinancialProvider userId={session.userId}>
+        <div className="max-w-6xl mx-auto space-y-8 pb-20">
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                Olá, {profile.full_name?.split(' ')[0] || 'Investidor'}
+              </h1>
+              <p className="text-muted-foreground">
+                Visão geral do seu fluxo de caixa.
+              </p>
+            </div>
+          </header>
 
-        {/* Financial Summary Cards */}
-        <MigrationDebug />
-        <DashboardSummary />
+          {/* Financial Summary Cards */}
+          <MigrationDebug />
+          <DashboardSummary />
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Main Content: 2/3 width */}
-          <div className="md:col-span-2 space-y-6">
-            <DailyLedger />
-          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Main Content: 2/3 width */}
+            <div className="md:col-span-2 space-y-6">
+              <DailyLedger />
+            </div>
 
-          {/* Sidebar: 1/3 width */}
-          <div className="space-y-6">
-            <RecurringList />
-            <TransactionForm />
+            {/* Sidebar: 1/3 width */}
+            <div className="space-y-6">
+              <RecurringList />
+              <TransactionForm />
+            </div>
           </div>
         </div>
-      </main>
-    </FinancialProvider>
+      </FinancialProvider>
+    </DashboardLayout>
   )
 }
